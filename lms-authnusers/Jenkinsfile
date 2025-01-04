@@ -5,7 +5,7 @@ pipeline {
         MAVEN_HOME = '/opt/homebrew'
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_BINARY = '/usr/local/bin/docker'
-         SERVER_PORT = '2228'
+        SERVER_PORT = '2228'
         IMAGE_NAME = 'ghcr.io/ritapinto1230205/lmsusers'
         IMAGE_TAG = 'latest'
         GITHUB_TOKEN_ID = 'GITHUB_TOKEN'
@@ -13,23 +13,23 @@ pipeline {
     }
 
     stages {
-    stage('Install Java 21.0.4-amzn with SDKMAN!') {
-                steps {
-                    script {
-                        sh '''
-                            # Instalar SDKMAN! (se necessário)
-                            if [ ! -d "$HOME/.sdkman" ]; then
-                              curl -s "https://get.sdkman.io" | bash
-                              source "$HOME/.sdkman/bin/sdkman-init.sh"
-                            fi
-                            # Instalar a versão do Java 21.0.4-amzn
+        stage('Install Java 21.0.4-amzn with SDKMAN!') {
+            steps {
+                script {
+                    sh '''
+                        # Instalar SDKMAN! (se necessário)
+                        if [ ! -d "$HOME/.sdkman" ]; then
+                            curl -s "https://get.sdkman.io" | bash
                             source "$HOME/.sdkman/bin/sdkman-init.sh"
-                            sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
-                            sdk default java 21.0.4-amzn
-                        '''
-                    }
+                        fi
+                        # Instalar a versão do Java 21.0.4-amzn
+                        source "$HOME/.sdkman/bin/sdkman-init.sh"
+                        sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
+                        sdk default java 21.0.4-amzn
+                    '''
                 }
             }
+        }
 
         stage('Check Out') {
             steps {
@@ -48,7 +48,7 @@ pipeline {
 
         stage('Check Docker') {
             steps {
-                  dir('lms-authnusers') {
+                dir('lms-authnusers') {
                     sh 'docker --version'
                 }
             }
@@ -56,7 +56,7 @@ pipeline {
 
         stage('Clean and Build Project') {
             steps {
-                 dir('lms-authnusers') {
+                dir('lms-authnusers') {
                     script {
                         sh """
                             ${MAVEN_HOME}/bin/mvn clean install
@@ -66,20 +66,32 @@ pipeline {
             }
         }
 
-       stage('Build Docker Image') {
+        stage('Run Tests Against Container') {
             steps {
-               dir('lms-authnusers') {
+                dir('lms-authnusers') {
+                    script {
+                        sh """
+                            ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('lms-authnusers') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
                                 sh """
-                                   echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
-                                    docker build -t ${IMAGE_NAME}:latest .
+                                    echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
+                                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
                                 """
                             } else {
                                 bat """
                                     echo %GITHUB_TOKEN% | docker login ghcr.io -u RitaPinto1230205 --password-stdin
-                                    docker build -t ${IMAGE_NAME}:latest .
+                                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
                                 """
                             }
                         }
@@ -90,16 +102,16 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
-                 dir('lms-authnusers') {
+                dir('lms-authnusers') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
                                 sh """
-                                    docker push ${IMAGE_NAME}:latest
+                                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
                                 """
                             } else {
                                 bat """
-                                    docker push ${IMAGE_NAME}:latest
+                                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
                                 """
                             }
                         }
@@ -108,16 +120,16 @@ pipeline {
             }
         }
 
-         stage('Wait for Manual Approval') {
-                    steps {
-                        input message: 'Deployment is ready. Do you want to continue?', parameters: [
-                            booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
-                        ]
-                        script {
-                            DEPLOYMENT_APPROVED = params.DeployApproval
-                        }
-                    }
+        stage('Wait for Manual Approval') {
+            steps {
+                input message: 'Deployment is ready. Do you want to continue?', parameters: [
+                    booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
+                ]
+                script {
+                    DEPLOYMENT_APPROVED = params.DeployApproval
                 }
+            }
+        }
 
         stage('Deploy Using Docker Compose') {
             steps {
