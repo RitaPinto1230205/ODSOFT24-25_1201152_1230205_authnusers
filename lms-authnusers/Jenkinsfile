@@ -126,7 +126,7 @@ pipeline {
                         script {
                             // Entrada para número de instâncias e ação (aumentar ou diminuir)
                             def scaling = input(
-                                message: 'Specify scaling action and instances for book01 and book02:',
+                                message: 'Specify scaling action and instances for auther01 and auther02:',
                                 parameters: [
                                     // Parâmetro para escolher a ação: aumentar ou diminuir
                                     choice(
@@ -152,7 +152,7 @@ pipeline {
                             echo "Scaling action: ${scaling.scaleAction}"
                             echo "Scaling services: users01=${scaling.scaleUsers01}, users02=${scaling.scaleUsers01}"
 
-                            dir('lms-books') {
+                            dir('lms-authnusers')
                                 // Antes de escalar, parar e remover containers órfãos
                                 echo "Scaling down existing services..."
                                 sh """
