@@ -5,31 +5,31 @@ pipeline {
         MAVEN_HOME = '/opt/homebrew'
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_BINARY = '/usr/local/bin/docker'
-        SERVER_PORT = '2228'
-        IMAGE_NAME = 'ghcr.io/ritapinto1230205/lmsusers'
+        SERVER_PORT = '2226'
+        IMAGE_NAME = 'ghcr.io/ritapinto1230205/lmsbooks'
         IMAGE_TAG = 'latest'
         GITHUB_TOKEN_ID = 'GITHUB_TOKEN'
         DEPLOYMENT_APPROVED = false
     }
 
     stages {
-        stage('Install Java 21.0.4-amzn with SDKMAN!') {
-            steps {
-                script {
-                    sh '''
-                        # Instalar SDKMAN! (se necessário)
-                        if [ ! -d "$HOME/.sdkman" ]; then
-                            curl -s "https://get.sdkman.io" | bash
-                            source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        fi
-                        # Instalar a versão do Java 21.0.4-amzn
-                        source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
-                        sdk default java 21.0.4-amzn
-                    '''
-                }
-            }
-        }
+          stage('Install Java 21.0.4-amzn with SDKMAN!') {
+                        steps {
+                            script {
+                                sh '''
+                                    # Instalar SDKMAN! (se necessário)
+                                    if [ ! -d "$HOME/.sdkman" ]; then
+                                      curl -s "https://get.sdkman.io" | bash
+                                      source "$HOME/.sdkman/bin/sdkman-init.sh"
+                                    fi
+                                    # Instalar a versão do Java 21.0.4-amzn
+                                    source "$HOME/.sdkman/bin/sdkman-init.sh"
+                                    sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
+                                    sdk default java 21.0.4-amzn
+                                '''
+                            }
+                        }
+                    }
 
         stage('Check Out') {
             steps {
@@ -40,7 +40,7 @@ pipeline {
 
         stage('Debug Environment') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     sh 'env'
                 }
             }
@@ -48,7 +48,7 @@ pipeline {
 
         stage('Check Docker') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     sh 'docker --version'
                 }
             }
@@ -56,7 +56,7 @@ pipeline {
 
         stage('Clean and Build Project') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     script {
                         sh """
                             ${MAVEN_HOME}/bin/mvn clean install
@@ -67,31 +67,31 @@ pipeline {
         }
 
         stage('Run Tests Against Container') {
-            steps {
-                dir('lms-authnusers') {
-                    script {
-                        sh """
-                            ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
-                        """
+                    steps {
+                        dir('lms-books') {
+                            script {
+                                sh """
+                                    ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
+                                """
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        stage('Build Docker Image') {
+       stage('Build Docker Image') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
                                 sh """
-                                    echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
-                                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                                    echo \$GITHUB_TOKEN | docker login ghcr.io -u RitaPinto1230205 --password-stdin
+                                    docker build -t ${IMAGE_NAME}:latest .
                                 """
                             } else {
                                 bat """
                                     echo %GITHUB_TOKEN% | docker login ghcr.io -u RitaPinto1230205 --password-stdin
-                                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                                    docker build -t ${IMAGE_NAME}:latest .
                                 """
                             }
                         }
@@ -102,16 +102,16 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
                                 sh """
-                                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                                    docker push ${IMAGE_NAME}:latest
                                 """
                             } else {
                                 bat """
-                                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                                    docker push ${IMAGE_NAME}:latest
                                 """
                             }
                         }
@@ -120,20 +120,56 @@ pipeline {
             }
         }
 
-        stage('Wait for Manual Approval') {
+        stage('Scale up and down each service') {
             steps {
-                input message: 'Deployment is ready. Do you want to continue?', parameters: [
-                    booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
-                ]
                 script {
-                    DEPLOYMENT_APPROVED = params.DeployApproval
+                    def scaling = input(
+                        message: 'Escolha quantas instâncias de cada books deseja adicionar:',
+                        parameters: [
+                            string(defaultValue: '4', description: 'Numero de instâncias do book_1', name: '1_INPUT'),
+                            string(defaultValue: '4', description: 'Numero de instâncias do book_2', name: '2_INPUT')
+                        ]
+                    )
+
+                    echo "Deploying to Development Environment with scaling: lmsbooks_1=${scaling.'1_INPUT'}, lmsbooks_2=${scaling.'2_INPUT'}"
+
+                    def scaleTimeout = 20  // Timeout em segundos
+
+                    if (isUnix()) {
+                        // Navega para o diretório correto antes de executar o comando
+                        dir('lms-books') {
+                            sh """
+                                gtimeout ${scaleTimeout} docker-compose -f docker-compose-test.yml down
+                                gtimeout ${scaleTimeout} docker-compose -f docker-compose-test.yml up --scale book_1=${scaling.'1_INPUT'} --scale book_2=${scaling.'2_INPUT'}
+                            """
+                        }
+                    } else {
+                        dir('lms-books') {
+                            bat """
+                                timeout /t ${scaleTimeout} docker-compose -f docker-compose-test.yml down
+                                timeout /t ${scaleTimeout} docker-compose -f docker-compose-test.yml up --scale book_1=${scaling.'1_INPUT'} --scale book_2=${scaling.'2_INPUT'}
+                            """
+                        }
+                    }
                 }
             }
         }
 
+
+         stage('Wait for Manual Approval') {
+                    steps {
+                        input message: 'Deployment is ready. Do you want to continue?', parameters: [
+                            booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
+                        ]
+                        script {
+                            DEPLOYMENT_APPROVED = params.DeployApproval
+                        }
+                    }
+                }
+
         stage('Deploy Using Docker Compose') {
             steps {
-                dir('lms-authnusers') {
+                dir('lms-books') {
                     script {
                         if (isUnix()) {
                             sh '''
