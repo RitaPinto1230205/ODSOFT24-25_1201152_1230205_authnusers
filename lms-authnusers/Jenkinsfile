@@ -5,31 +5,31 @@ pipeline {
         MAVEN_HOME = '/opt/homebrew'
         DOCKER_HOST = 'unix:///var/run/docker.sock'
         DOCKER_BINARY = '/usr/local/bin/docker'
-        SERVER_PORT = '2226'
-        IMAGE_NAME = 'ghcr.io/ritapinto1230205/lmsbooks'
+         SERVER_PORT = '2228'
+        IMAGE_NAME = 'ghcr.io/ritapinto1230205/lmsusers'
         IMAGE_TAG = 'latest'
         GITHUB_TOKEN_ID = 'GITHUB_TOKEN'
         DEPLOYMENT_APPROVED = false
     }
 
     stages {
-        stage('Install Java 21.0.4-amzn with SDKMAN!') {
-            steps {
-                script {
-                    sh '''
-                        # Instalar SDKMAN! (se necessário)
-                        if [ ! -d "$HOME/.sdkman" ]; then
-                          curl -s "https://get.sdkman.io" | bash
-                          source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        fi
-                        # Instalar a versão do Java 21.0.4-amzn
-                        source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
-                        sdk default java 21.0.4-amzn
-                    '''
+    stage('Install Java 21.0.4-amzn with SDKMAN!') {
+                steps {
+                    script {
+                        sh '''
+                            # Instalar SDKMAN! (se necessário)
+                            if [ ! -d "$HOME/.sdkman" ]; then
+                              curl -s "https://get.sdkman.io" | bash
+                              source "$HOME/.sdkman/bin/sdkman-init.sh"
+                            fi
+                            # Instalar a versão do Java 21.0.4-amzn
+                            source "$HOME/.sdkman/bin/sdkman-init.sh"
+                            sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
+                            sdk default java 21.0.4-amzn
+                        '''
+                    }
                 }
             }
-        }
 
         stage('Check Out') {
             steps {
@@ -40,7 +40,7 @@ pipeline {
 
         stage('Debug Environment') {
             steps {
-                dir('lms-books') {
+                dir('lms-authnusers') {
                     sh 'env'
                 }
             }
@@ -48,7 +48,7 @@ pipeline {
 
         stage('Check Docker') {
             steps {
-                dir('lms-books') {
+                  dir('lms-authnusers') {
                     sh 'docker --version'
                 }
             }
@@ -56,7 +56,7 @@ pipeline {
 
         stage('Clean and Build Project') {
             steps {
-                dir('lms-books') {
+                 dir('lms-authnusers') {
                     script {
                         sh """
                             ${MAVEN_HOME}/bin/mvn clean install
@@ -66,26 +66,14 @@ pipeline {
             }
         }
 
-        stage('Run Tests Against Container') {
+       stage('Build Docker Image') {
             steps {
-                dir('lms-books') {
-                    script {
-                        sh """
-                            ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                dir('lms-books') {
+               dir('lms-authnusers') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
                                 sh """
-                                    echo \$GITHUB_TOKEN | docker login ghcr.io -u RitaPinto1230205 --password-stdin
+                                   echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
                                     docker build -t ${IMAGE_NAME}:latest .
                                 """
                             } else {
@@ -100,9 +88,22 @@ pipeline {
             }
         }
 
+          stage('Run Tests Against Container') {
+                            steps {
+                                dir('lms-books') {
+                                    script {
+                                        sh """
+                                            ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
+                                        """
+                                    }
+                                }
+                            }
+                        }
+
+
         stage('Push Docker Image') {
             steps {
-                dir('lms-books') {
+                 dir('lms-authnusers') {
                     script {
                         withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
                             if (isUnix()) {
@@ -120,23 +121,79 @@ pipeline {
             }
         }
 
+         stage('Scale Up and Down Services') {
+                    steps {
+                        script {
+                            // Entrada para número de instâncias e ação (aumentar ou diminuir)
+                            def scaling = input(
+                                message: 'Specify scaling action and instances for book01 and book02:',
+                                parameters: [
+                                    // Parâmetro para escolher a ação: aumentar ou diminuir
+                                    choice(
+                                        choices: ['Scale Up', 'Scale Down'],
+                                        description: 'Choose whether to scale up or scale down the services.',
+                                        name: 'scaleAction'
+                                    ),
+                                    // Parâmetro para o número de instâncias do book01
+                                    string(
+                                        defaultValue: '4',
+                                        description: 'Number of instances for users01',
+                                        name: 'scaleUsers01'
+                                    ),
+                                    // Parâmetro para o número de instâncias do book02
+                                    string(
+                                        defaultValue: '4',
+                                        description: 'Number of instances for users02',
+                                        name: 'scaleUsers02'
+                                    )
+                                ]
+                            )
 
+                            echo "Scaling action: ${scaling.scaleAction}"
+                            echo "Scaling services: users01=${scaling.scaleUsers01}, users02=${scaling.scaleUsers01}"
 
+                            dir('lms-books') {
+                                // Antes de escalar, parar e remover containers órfãos
+                                echo "Scaling down existing services..."
+                                sh """
+                                    docker-compose -f docker-compose-test.yml down --remove-orphans
+                                """
 
-        stage('Wait for Manual Approval') {
-            steps {
-                input message: 'Deployment is ready. Do you want to continue?', parameters: [
-                    booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
-                ]
-                script {
-                    DEPLOYMENT_APPROVED = params.DeployApproval
+                                // Condicional para decidir se vamos escalar para cima ou para baixo
+                                if (scaling.scaleAction == 'Scale Up') {
+                                    echo "Scaling up services..."
+                                    sh """
+                                        docker-compose -f docker-compose-test.yml up --scale users01=${scaling.scaleUsers01} --scale users02=${scaling.scaleUsers02} -d
+                                    """
+                                } else if (scaling.scaleAction == 'Scale Down') {
+                                    echo "Scaling down services..."
+                                    // Diminuir as instâncias (geralmente, "docker-compose down" já é suficiente)
+                                    // Não é possível especificar diretamente quantas instâncias escalar para baixo no `docker-compose up` (sem recriar containers manualmente), então uma solução é ajustar manualmente a quantidade de instâncias no arquivo `docker-compose.yml` e usar o `docker-compose down` novamente.
+                                    sh """
+                                        docker-compose -f docker-compose-test.yml up --scale users01=0 --scale users02=0 -d
+                                    """
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        }
+
+
+
+         stage('Wait for Manual Approval') {
+                    steps {
+                        input message: 'Deployment is ready. Do you want to continue?', parameters: [
+                            booleanParam(defaultValue: false, description: 'Approve deployment?', name: 'DeployApproval')
+                        ]
+                        script {
+                            DEPLOYMENT_APPROVED = params.DeployApproval
+                        }
+                    }
+                }
 
         stage('Deploy Using Docker Compose') {
             steps {
-                dir('lms-books') {
+                dir('lms-authnusers') {
                     script {
                         if (isUnix()) {
                             sh '''
