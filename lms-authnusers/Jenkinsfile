@@ -188,6 +188,7 @@ pipeline {
 
         stage('Deploy with Docker Compose') {
             steps {
+            dir('lms-authnusers') {
                 script {
                     sh """
 
@@ -208,6 +209,7 @@ pipeline {
 
                     """
                 }
+            }
             }
         }
 
