@@ -121,7 +121,7 @@ pipeline {
         }
 
 
-        stage('Scale up and down each service - Books Scaling') {
+        stage('batatas') {
             steps {
                 script {
                     def scaling = input(
