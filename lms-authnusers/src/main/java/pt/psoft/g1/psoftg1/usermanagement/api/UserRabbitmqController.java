@@ -6,7 +6,6 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import pt.psoft.g1.psoftg1.usermanagement.services.UserService;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import pt.psoft.g1.psoftg1.usermanagement.model.User;
 
 @Component
