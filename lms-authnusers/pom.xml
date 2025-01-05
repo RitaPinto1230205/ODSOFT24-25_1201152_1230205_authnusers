@@ -135,6 +135,31 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
+
+		<dependency>
+			<groupId>au.com.dius.pact.consumer</groupId>
+			<artifactId>junit5</artifactId>
+			<version>4.5.4</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>au.com.dius.pact.provider</groupId>
+			<artifactId>junit5</artifactId>
+			<version>4.5.5</version>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-amqp</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.amqp</groupId>
+			<artifactId>spring-rabbit-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>
