@@ -6,7 +6,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "6052-6058:8080"  # Expondo porta 8084 do host para 8080 do container
+      - "6073-6076:8080"  # Expondo porta 8084 do host para 8080 do container
     environment:
       SPRING_PROFILES_ACTIVE: instance1,bootstrap
     networks:
@@ -24,7 +24,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "6062-6068:8080"  # Expondo porta 8085 do host para 8080 do container
+      - "6077-6080:8080"  # Expondo porta 8085 do host para 8080 do container
     environment:
       SPRING_PROFILES_ACTIVE: instance2,bootstrap
     networks:
