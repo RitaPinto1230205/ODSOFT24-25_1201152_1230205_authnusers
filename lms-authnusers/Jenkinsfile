@@ -128,19 +128,15 @@ pipeline {
                             ),
                             string(
                                 defaultValue: '4',
-                                description: 'Number of instances for users01',
-                                name: 'scaleUsers01'
+                                description: 'Number of instances for users',
+                                name: 'scaleUser'
                             ),
-                            string(
-                                defaultValue: '4',
-                                description: 'Number of instances for users02',
-                                name: 'scaleUsers02'
-                            )
+
                         ]
                     )
 
                     echo "Scaling action: ${scaling.scaleAction}"
-                    echo "Scaling services: users01=${scaling.scaleUsers01}, users02=${scaling.scaleUsers02}"
+                    echo "Scaling services: users=${scaling.scaleUser}"
 
                     dir('lms-authnusers') {
                         echo "Scaling down existing services..."
@@ -151,12 +147,12 @@ pipeline {
                         if (scaling.scaleAction == 'Scale Up') {
                             echo "Scaling up services..."
                             sh """
-                                docker-compose -f docker-compose-test.yml up --scale users01=${scaling.scaleUsers01} --scale users02=${scaling.scaleUsers02} -d
+                                docker-compose -f docker-compose-test.yml up --scale users=${scaling.scaleUsers} -d
                             """
                         } else {
                             echo "Scaling down services..."
                             sh """
-                                docker-compose -f docker-compose-test.yml up --scale users01=0 --scale users02=0 -d
+                                docker-compose -f docker-compose-test.yml up --scale users=0 -d
                             """
                         }
                     }
