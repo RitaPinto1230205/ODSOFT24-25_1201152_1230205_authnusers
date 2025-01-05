@@ -67,7 +67,7 @@ pipeline {
             }
         }
 
-      stage('Build Docker Image') {
+     /* stage('Build Docker Image') {
           steps {
               dir('lms-authnusers') {
                   script {
@@ -82,7 +82,7 @@ pipeline {
                   }
               }
           }
-      }
+      }*/
 
 
         stage('Run Tests Against Container') {
