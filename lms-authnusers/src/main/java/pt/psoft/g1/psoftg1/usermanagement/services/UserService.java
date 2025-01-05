@@ -161,4 +161,32 @@ public class UserService implements UserDetailsService {
 
         return loggedUser.get();
     }
+
+    @Transactional
+    public void handleUserUpdated(User updatedUser) {
+        Optional<User> existingUser = userRepo.findByUsername(updatedUser.getUsername());
+
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+
+            // Atualizar os campos relevantes
+            if (updatedUser.getName() != null) {
+                user.setName(updatedUser.getName().toString());
+            }
+
+            // Se houver mudança no status de ativação
+            if (updatedUser.isEnabled() != user.isEnabled()) {
+                user.setEnabled(updatedUser.isEnabled());
+            }
+
+            // Atualizar outros campos conforme necessário
+            // ...
+
+            userRepo.save(user);
+        } else {
+            // Opcionalmente, você pode lançar uma exceção ou logar um aviso
+            throw new UsernameNotFoundException("User not found: " + updatedUser.getUsername());
+        }
+    }
+
 }

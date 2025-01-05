@@ -1,11 +1,23 @@
 package pt.psoft.g1.psoftg1.usermanagement.api;
 
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+@Schema(description = "A User form AMQP communication")
 public class UserViewAMQP {
+
+    @NotNull
     private String username;
+
+    @NotNull
     private String name;
+
+    @NotNull
     private String email;
 
-    // getters e setters
     public String getUsername() {
         return username;
     }

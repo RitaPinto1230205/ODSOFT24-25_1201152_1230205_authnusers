@@ -58,6 +58,7 @@ public class UsersProducerCDCIT {
                 any(Object.class)
         );
     }
+
     @TestTemplate
     void testTemplate(PactVerificationContext context) {
         context.verifyInteraction();
