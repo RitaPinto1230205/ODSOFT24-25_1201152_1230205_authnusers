@@ -75,6 +75,8 @@ pipeline {
                           sh """
                               echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
                               docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                               ${MAVEN_HOME}/bin/mvn clean install
+                               ls -l target
                           """
                       }
                   }
