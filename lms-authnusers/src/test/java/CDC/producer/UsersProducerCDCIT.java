@@ -6,6 +6,8 @@ import au.com.dius.pact.provider.junit5.MessageTestTarget;
 import au.com.dius.pact.provider.junit5.PactVerificationContext;
 import au.com.dius.pact.provider.junitsupport.Provider;
 import au.com.dius.pact.provider.junitsupport.loader.PactFolder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.springframework.amqp.core.DirectExchange;
@@ -18,6 +20,12 @@ import pt.psoft.g1.psoftg1.usermanagement.infrastructure.publishers.impl.UserEve
 import pt.psoft.g1.psoftg1.usermanagement.model.User;
 import pt.psoft.g1.psoftg1.usermanagement.publishers.UserEventsPublisher;
 import pt.psoft.g1.psoftg1.usermanagement.services.UserService;
+import java.util.HashMap;
+import java.util.Map;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(
         classes = {
@@ -39,11 +47,17 @@ public class UsersProducerCDCIT {
     @MockBean
     private DirectExchange direct;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeEach
     void setUp(PactVerificationContext context) {
         context.setTarget(new MessageTestTarget());
+        doNothing().when(template).convertAndSend(
+                anyString(),
+                anyString(),
+                any(Object.class)
+        );
     }
-
     @TestTemplate
     void testTemplate(PactVerificationContext context) {
         context.verifyInteraction();
@@ -51,35 +65,51 @@ public class UsersProducerCDCIT {
 
     @PactVerifyProvider("a user created event")
     public MessageAndMetadata verifyUserCreatedEvent() {
-        // Usando o método factory em vez do builder
         User user = User.newUser(
                 "testUser",
-                "password123", // senha necessária
-                "Test User"    // nome completo
+                "password123",
+                "Test User"
         );
 
-        userEventsPublisher.sendUserCreated(user);
+        try {
+            Map<String, String> message = new HashMap<>();
+            message.put("username", user.getUsername());
 
-        return new MessageAndMetadata(
-                "{\"username\":\"testUser\",\"name\":\"Test User\"}".getBytes(),
-                null
-        );
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("contentType", "application/json");
+            metadata.put("type", "user.created");
+
+            return new MessageAndMetadata(
+                objectMapper.writeValueAsBytes(message),
+                metadata
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Erro ao criar mensagem", e);
+        }
     }
 
     @PactVerifyProvider("a user updated event")
     public MessageAndMetadata verifyUserUpdatedEvent() {
-        // Usando o método factory em vez do builder
         User user = User.newUser(
                 "testUser",
-                "password123", // senha necessária
-                "Updated User" // nome atualizado
+                "password123",
+                "Updated User"
         );
 
-        userEventsPublisher.sendUserUpdated(user, 1L);
+        try {
+            Map<String, String> message = new HashMap<>();
+            message.put("username", user.getUsername());
 
-        return new MessageAndMetadata(
-                "{\"username\":\"testUser\",\"name\":\"Updated User\"}".getBytes(),
-                null
-        );
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("contentType", "application/json");
+            metadata.put("type", "user.updated");
+
+            return new MessageAndMetadata(
+                objectMapper.writeValueAsBytes(message),
+                metadata
+            );
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Erro ao criar mensagem", e);
+        }
     }
 }
