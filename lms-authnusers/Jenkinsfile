@@ -67,6 +67,28 @@ pipeline {
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                dir('lms-authnusers') {
+                      script {
+                      withCredentials([string(credentialsId: GITHUB_TOKEN_ID, variable: 'GITHUB_TOKEN')]) {
+                                    if (isUnix()) {
+                                        sh """
+                                            echo "$GITHUB_TOKEN" | docker login ghcr.io -u RitaPinto1230205 --password-stdin
+                                            docker build -t ${IMAGE_NAME}:latest .
+                                        """
+                                    } else {
+                                        bat """
+                                            echo %GITHUB_TOKEN% | docker login ghcr.io -u RitaPinto1230205 --password-stdin
+                                            docker build -t ${IMAGE_NAME}:latest .
+                                        """
+                                    }
+                                }
+                            }
+                }
+            }
+        }
+
         stage('Run Tests Against Container') {
             steps {
                 dir('lms-authnusers') {
