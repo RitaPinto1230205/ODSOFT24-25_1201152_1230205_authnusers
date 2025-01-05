@@ -1,3 +1,4 @@
+version: '3'
 services:
   users:
     image: ghcr.io/ritapinto1230205/lmsusers:latest
@@ -6,7 +7,7 @@ services:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "5084-5088:8080"  # Expondo porta 8084 do host para 8080 do container
+      - "5084-5088:8080"  # Expondo porta 5084 do host para 8080 do container
     environment:
       SPRING_PROFILES_ACTIVE: instance1,bootstrap
     networks:
@@ -17,6 +18,23 @@ services:
       replicas: 1  # Número de réplicas, que será alterado durante o scale
     privileged: true
 
+  users_new:
+    image: ghcr.io/ritapinto1230205/lmsusers:latest
+    container_name: users02_in_lms_network
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "5090-5094:8080"  # Expondo porta 5090 do host para 8080 do container
+    environment:
+      SPRING_PROFILES_ACTIVE: instance1_new,bootstrap
+    networks:
+      - lms_network
+    volumes:
+      - "users_data_volume_new:/tmp"  # Armazenando dados temporários ou persistentes para nova versão
+    deploy:
+      replicas: 1  # Número de réplicas para a nova versão
+    privileged: true
 
 networks:
   lms_network:
@@ -24,3 +42,4 @@ networks:
 
 volumes:
   users_data_volume:
+  users_data_volume_new:
