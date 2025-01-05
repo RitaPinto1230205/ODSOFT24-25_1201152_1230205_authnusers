@@ -10,7 +10,7 @@ import java.util.List;
 public abstract class UserViewAMQPMapper {
     @Mapping(target = "username", source = "username")
     @Mapping(target = "name", expression = "java(user.getName().getName())")
-    @Mapping(target = "email", source = "email")
+
     public abstract UserViewAMQP toUserViewAMQP(User user);
 
     public abstract List<UserViewAMQP> toUserViewAMQP(List<User> users);
