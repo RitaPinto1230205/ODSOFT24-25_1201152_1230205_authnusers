@@ -17,14 +17,14 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Instalar SDKMAN! (se necessário)
+                        # Install SDKMAN! if necessary
                         if [ ! -d "$HOME/.sdkman" ]; then
                           curl -s "https://get.sdkman.io" | bash
                           source "$HOME/.sdkman/bin/sdkman-init.sh"
                         fi
-                        # Instalar a versão do Java 21.0.4-amzn
+                        # Install Java 21.0.4-amzn
                         source "$HOME/.sdkman/bin/sdkman-init.sh"
-                        sdk install java 21.0.4-amzn || true  # Ignora se já estiver instalado
+                        sdk install java 21.0.4-amzn || true
                         sdk default java 21.0.4-amzn
                     '''
                 }
@@ -66,10 +66,9 @@ pipeline {
             }
         }
 
-
         stage('Run Tests Against Container') {
             steps {
-                dir('lms-authnusers'){
+                dir('lms-authnusers') {
                     script {
                         sh """
                             ${MAVEN_HOME}/bin/mvn verify -Dtest.container.url=http://localhost:${SERVER_PORT}
@@ -79,7 +78,7 @@ pipeline {
             }
         }
 
- stage('Deploy to Development Environment') {
+        stage('Deploy to Development Environment') {
             steps {
                 dir('lms-authnusers') {
                     script {
@@ -93,29 +92,25 @@ pipeline {
             }
         }
 
-
         stage('Test on Development Environment') {
-                    steps {
-                     dir('lms-authnusers') {
-                        script {
-                            echo "Running tests on Dev..."
-                            def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
-                            if (!success) {
-                              echo 'Test failed on Testing Environment.'
-                                //currentBuild.result = 'FAILURE'
-
-                              rollback('dev')
-
-                                return
-                            } else {
-                                echo 'Tests passed on Dev.'
-                            }
-                        }
+            steps {
+                dir('lms-authnusers') {
+                    script {
+                        echo "Running tests on Dev..."
+                        def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
+                        if (!success) {
+                            echo 'Test failed on Development Environment.'
+                            rollback('dev')
+                            return
+                        } else {
+                            echo 'Tests passed on Dev.'
                         }
                     }
                 }
+            }
+        }
 
-   stage('Approval to Deploy to Testing Environment') {
+        stage('Approval to Deploy to Testing Environment') {
             steps {
                 input message: 'Approve deploy to Test?', parameters: [
                     booleanParam(defaultValue: false, description: 'Approve deploy?', name: 'DeployApproval')
@@ -126,8 +121,7 @@ pipeline {
             }
         }
 
-
-stage('Deploy to Testing Environment') {
+        stage('Deploy to Testing Environment') {
             steps {
                 dir('lms-authnusers') {
                     script {
@@ -141,27 +135,23 @@ stage('Deploy to Testing Environment') {
             }
         }
 
-         stage('Test on Testing Environment') {
-                    steps {
-                     dir('lms-authnusers') {
-                        script {
-                            echo "Running tests on Test..."
-                            def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
-                            if (!success) {
-                                echo 'Test failed on Test. Aborting pipeline.'
-                                //currentBuild.result = 'FAILURE'
-
-                                rollback('test')
-
-                                return
-                            } else {
-                                echo 'Tests passed on Test.'
-                            }
-                        }
+        stage('Test on Testing Environment') {
+            steps {
+                dir('lms-authnusers') {
+                    script {
+                        echo "Running tests on Test..."
+                        def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
+                        if (!success) {
+                            echo 'Test failed on Testing Environment. Rolling back...'
+                            rollback('test')
+                            return
+                        } else {
+                            echo 'Tests passed on Test.'
                         }
                     }
                 }
-
+            }
+        }
 
         stage('Approval to Deploy to Production Environment') {
             steps {
@@ -174,83 +164,63 @@ stage('Deploy to Testing Environment') {
             }
         }
 
-  stage('Deploy to Production Environment') {
-              steps {
-                  dir('lms-authnusers') {
-                      script {
-                          echo "Deploying to Prod environment..."
-                          sh """
-                              docker-compose -f docker-compose-prod.yml down --remove-orphans
-                              docker-compose -f docker-compose-prod.yml up -d --force-recreate
-                          """
-                      }
-                  }
-              }
-          }
+        stage('Deploy to Production Environment') {
+            steps {
+                dir('lms-authnusers') {
+                    script {
+                        echo "Deploying to Prod environment..."
+                        sh """
+                            docker-compose -f docker-compose-prod.yml down --remove-orphans
+                            docker-compose -f docker-compose-prod.yml up -d --force-recreate
+                        """
+                    }
+                }
+            }
+        }
 
-              stage('Test on Production Environment') {
-                          steps {
-                           dir('lms-authnusers') {
-                              script {
-                                  echo "Running tests on Prod..."
-                                  def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
-                                  if (!success) {
-                                      echo 'Test failed on Prod. Rolling back...'
-
-                                      rollback('prod')
-                                      return
-                                  } else {
-                                      echo 'Tests passed on Prod.'
-                                  }
-                              }
-                              }
-                          }
-                      }
-
-
+        stage('Test on Production Environment') {
+            steps {
+                dir('lms-authnusers') {
+                    script {
+                        echo "Running tests on Prod..."
+                        def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
+                        if (!success) {
+                            echo 'Test failed on Prod. Rolling back...'
+                            rollback('prod')
+                            return
+                        } else {
+                            echo 'Tests passed on Prod.'
+                        }
+                    }
+                }
+            }
+        }
 
         stage('Scale Up and Down Services') {
             steps {
                 script {
-
                     def scaling = input(
-                        message: 'Specify scaling action and instances for users01 and users02:',
+                        message: 'Specify scaling action and instances for users:',
                         parameters: [
-
-                            choice(
-                                choices: ['Scale Up', 'Scale Down'],
-                                description: 'Choose whether to scale up or scale down the services.',
-                                name: 'scaleAction'
-                            ),
-
-                            string(
-                                defaultValue: '1',
-                                description: 'Number of instances for users',
-                                name: 'scaleUsers'
-                            ),
-
+                            choice(choices: ['Scale Up', 'Scale Down'], description: 'Choose scaling action.', name: 'scaleAction'),
+                            string(defaultValue: '1', description: 'Number of instances for users', name: 'scaleUsers')
                         ]
                     )
 
                     echo "Scaling action: ${scaling.scaleAction}"
-                    echo "Scaling services:  users=${scaling.scaleUsers}"
+                    echo "Scaling services: users=${scaling.scaleUsers}"
 
                     dir('lms-authnusers') {
-
-                        echo "Scaling down existing services..."
+                        echo "Scaling services..."
                         sh """
                             docker-compose -f docker-compose-test.yml down --remove-orphans
                         """
-
-
                         if (scaling.scaleAction == 'Scale Up') {
-                            echo "Scaling up services..."
                             sh """
                                 docker-compose -f docker-compose-test.yml up --scale users=${scaling.scaleUsers} -d
                             """
-                        } else if (scaling.scaleAction == 'Scale Down') {
-                            echo "Scaling down services..."
-                              sh """
+                        } else {
+                            sh """
                                 docker-compose -f docker-compose-test.yml up --scale users=0 -d
                             """
                         }
@@ -259,20 +229,20 @@ stage('Deploy to Testing Environment') {
             }
         }
 
-                stage('Build Docker Image') {
-                    steps {
-                        dir('lms-authnusers') {
-                            script {
-                                echo 'Building Docker image...'
-                                sh """
-                                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                                """
-                            }
-                        }
+        stage('Build Docker Image') {
+            steps {
+                dir('lms-authnusers') {
+                    script {
+                        echo 'Building Docker image...'
+                        sh """
+                            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                        """
                     }
                 }
+            }
+        }
 
- stage('Push Docker Image') {
+        stage('Push Docker Image') {
             steps {
                 dir('lms-authnusers') {
                     script {
@@ -287,28 +257,27 @@ stage('Deploy to Testing Environment') {
             }
         }
 
-stage('Deploy Using Docker Compose') {
+        stage('Deploy Using Docker Compose') {
             steps {
-              dir('lms-authnusers') {
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            docker-compose down
-                            docker-compose pull
-                            docker-compose up -d
-                        '''
-                    } else {
-                        bat '''
-                            docker-compose down
-                            docker-compose pull
-                            docker-compose up -d
-                        '''
+                dir('lms-authnusers') {
+                    script {
+                        if (isUnix()) {
+                            sh '''
+                                docker-compose down
+                                docker-compose pull
+                                docker-compose up -d
+                            '''
+                        } else {
+                            bat '''
+                                docker-compose down
+                                docker-compose pull
+                                docker-compose up -d
+                            '''
+                        }
                     }
-                }
                 }
             }
         }
-
     }
 
     post {
@@ -321,24 +290,11 @@ stage('Deploy Using Docker Compose') {
     }
 }
 
-
 def rollback(env) {
     echo "Rolling back to the previous version in the ${env} environment..."
-    if (env == 'dev') {
-        sh """
-            docker-compose -f docker-compose-dev.yml down --remove-orphans
-            docker-compose -f docker-compose-dev.yml up -d --force-recreate
-        """
-    } else if (env == 'test') {
-        sh """
-            docker-compose -f docker-compose-test.yml down --remove-orphans
-            docker-compose -f docker-compose-test.yml up -d --force-recreate
-        """
-    } else if (env == 'prod') {
-        sh """
-            docker-compose -f docker-compose-prod.yml down --remove-orphans
-            docker-compose -f docker-compose-prod.yml up -d --force-recreate
-        """
-    }
+    sh """
+        docker-compose -f docker-compose-${env}.yml down --remove-orphans
+        docker-compose -f docker-compose-${env}.yml up -d --force-recreate
+    """
     echo "Rollback completed in the ${env} environment."
 }
