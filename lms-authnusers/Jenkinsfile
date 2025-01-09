@@ -276,7 +276,7 @@ pipeline {
                                    sh """
                                        docker-compose -f docker-compose-prod.yml -p new_version down
                                    """
-                                   // error('Deployment failed.') // Descomente se quiser parar o pipeline em caso de falha
+                                   // error('Deployment failed.')
                                }
 
                                echo 'Switching to the new version...'
@@ -292,8 +292,6 @@ pipeline {
                        }
                    }
                }
-
-               // Outros estágios...
            }
 
            post {

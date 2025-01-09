@@ -1,4 +1,3 @@
-version: '3'
 services:
   users:
     image: ghcr.io/ritapinto1230205/lmsusers:latest
@@ -25,15 +24,15 @@ services:
       context: ..
       dockerfile: Dockerfile
     ports:
-      - "5090-5094:8080"  # Expondo porta 5090 do host para 8080 do container
+      - "5090-5094:8080"  #
     environment:
       SPRING_PROFILES_ACTIVE: instance1_new,bootstrap
     networks:
       - lms_network
     volumes:
-      - "users_data_volume_new:/tmp"  # Armazenando dados temporários ou persistentes para nova versão
+      - "users_data_volume_new:/tmp"
     deploy:
-      replicas: 1  # Número de réplicas para a nova versão
+      replicas: 1
     privileged: true
 
 networks:
