@@ -3,7 +3,7 @@ services:
     image: lmsusers:latest
     container_name: users01_in_lms_network
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
     ports:
       - "5084-5088:8080"  # Expondo porta 5084 do host para 8080 do container
