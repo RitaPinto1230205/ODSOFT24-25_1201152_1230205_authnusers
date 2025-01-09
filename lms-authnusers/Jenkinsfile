@@ -257,51 +257,54 @@ pipeline {
             }
         }
 
-        stage('Zero Downtime Deployment') {
-            steps {
-                dir('lms-authnusers') {
-                    script {
-                        echo 'Starting Zero Downtime Deployment...'
+       stage('Zero Downtime Deployment') {
+                   steps {
+                       dir('lms-authnusers') {
+                           script {
+                               echo 'Starting Zero Downtime Deployment...'
 
-                        // Inicia a nova versão do serviço com o prefixo "new_version"
-                        sh """
-                            docker-compose -f docker-compose-prod.yml -p new_version up -d --build
-                        """
+                               // Inicia a nova versão do serviço com o prefixo "new_version"
+                               sh """
+                                   docker-compose -f docker-compose-prod.yml -p new_version up -d --build
+                               """
 
-                        // Verifica se a nova versão passou nos testes de saúde
-                        def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
-                        if (!success) {
-                            echo 'New version failed health checks. Aborting deployment.'
+                               // Verifica se a nova versão passou nos testes de saúde
+                               def success = sh(script: "curl -f http://localhost:${SERVER_PORT}/health", returnStatus: true) == 0
+                               if (!success) {
+                                   echo 'New version failed health checks. Aborting deployment.'
 
-                            // Caso falhe, realiza o rollback da nova versão
-                            sh """
-                                docker-compose -f docker-compose-prod.yml -p new_version down
-                            """
-                            // error('Deployment failed.') // Descomente se quiser parar o pipeline em caso de falha
-                        }
+                                   sh """
+                                       docker-compose -f docker-compose-prod.yml -p new_version down
+                                   """
+                                   // error('Deployment failed.') // Descomente se quiser parar o pipeline em caso de falha
+                               }
 
-                        echo 'Switching to the new version...'
+                               echo 'Switching to the new version...'
 
-                        // Desliga a versão anterior e sobe a nova versão
-                        sh """
-                            docker-compose -f docker-compose-prod.yml -p old_version down --remove-orphans
-                            docker-compose -f docker-compose-prod.yml -p new_version up -d
-                        """
+                               // Desliga a versão anterior e sobe a nova versão
+                               sh """
+                                   docker-compose -f docker-compose-prod.yml -p old_version down --remove-orphans
+                                   docker-compose -f docker-compose-prod.yml -p new_version up -d
+                               """
 
-                        echo 'Deployment completed with zero downtime!'
-                    }
-                }
-            }
-        }
-    post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
-        }
-    }
-}
+                               echo 'Deployment completed with zero downtime!'
+                           }
+                       }
+                   }
+               }
+
+               // Outros estágios...
+           }
+
+           post {
+               success {
+                   echo 'Pipeline completed successfully!'
+               }
+               failure {
+                   echo 'Pipeline failed!'
+               }
+           }
+       }
 
 def rollback(env) {
     echo "Rolling back to the previous version in the ${env} environment..."
